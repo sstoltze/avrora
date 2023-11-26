@@ -82,13 +82,13 @@ defmodule Avrora.Codec.PlainTest do
 
       {:ok, decoded} = Codec.Plain.decode(null_value_message(), schema: record_with_null_union_field_schema())
 
-      assert decoded == %{"key" => "user-1", "value" => :null}
+      assert decoded == %{"birthday" => ~D[2016-10-26], "guests" => :null}
     end
 
     test "when payload is a valid binary and null values must be converted" do
       {:ok, decoded} = Codec.Plain.decode(null_value_message(), schema: record_with_null_union_field_schema())
 
-      assert decoded == %{"key" => "user-1", "value" => nil}
+      assert decoded == %{"birthday" => ~D[2016-10-26], "guests" => nil}
     end
 
     test "when payload is a valid binary and map type must be decoded as proplist" do
@@ -139,9 +139,18 @@ defmodule Avrora.Codec.PlainTest do
     test "when decoding message and logical types must be as is" do
       stub(Avrora.ConfigMock, :decode_logical_types, fn -> false end)
 
-      {:ok, decoded} = Codec.Plain.decode(logical_type_message(), schema: logical_type_schema())
+      {:ok, decoded} = Codec.Plain.decode(convertable_message(), schema: convertable_schema())
 
-      assert decoded == %{"birthday" => 17100}
+      assert decoded == %{"birthday" => 17100, "guests" => nil}
+    end
+
+    test "when decoding message and all types must be as is" do
+      stub(Avrora.ConfigMock, :convert_null_values, fn -> false end)
+      stub(Avrora.ConfigMock, :decode_logical_types, fn -> false end)
+
+      {:ok, decoded} = Codec.Plain.decode(convertable_message(), schema: convertable_schema())
+
+      assert decoded == %{"birthday" => 17100, "guests" => :null}
     end
   end
 
@@ -280,8 +289,7 @@ defmodule Avrora.Codec.PlainTest do
       48, 48, 48, 48, 48, 48, 48, 48, 48, 123, 20, 174, 71, 225, 250, 47, 64>>
   end
 
-  defp null_value_message, do: <<12, 117, 115, 101, 114, 45, 49, 0>>
-  defp logical_type_message, do: <<152, 139, 2>>
+  defp convertable_message, do: <<152, 139, 2, 0>>
   defp map_message, do: <<1, 20, 6, 107, 101, 121, 10, 118, 97, 108, 117, 101, 0>>
   defp payment_payload, do: %{"id" => "00000000-0000-0000-0000-000000000000", "amount" => 15.99}
 
@@ -347,7 +355,7 @@ defmodule Avrora.Codec.PlainTest do
     ~s({"namespace":"io.acme","name":"CRC32","type":"fixed","size":8})
   end
 
-  defp logical_type_json_schema do
-    ~s({"namespace":"io.confluent","name":"Logical_Type","type":"record","fields":[{"name":"birthday","type":{"type":"int","logicalType":"Date"}}]})
+  defp converterable_json_schema do
+    ~s({"namespace":"io.confluent","name":"Converter","type":"record","fields":[{"name":"birthday","type":{"type":"int","logicalType":"Date"}},{"name":"guests","type":["null","int"]}]})
   end
 end
